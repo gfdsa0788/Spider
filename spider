@@ -1,0 +1,110 @@
+from urllib.request import urlopen
+from link_finder import LinkFinder
+from general import *
+
+class Spider:
+    # Class variables (shared among all instances)
+    project_name = ''
+    base_url = ''
+    domain_name = ''
+    queue_file = ''
+    crawled_file = ''
+    queue_file_t = ''
+    content_file = ''
+    queue_t = ''
+    content = []
+    queue = set()
+    crawled = set()
+
+    def __init__(self, project_name, base_url, domain_name, times):                            #self是一个Spider类
+        Spider.project_name = project_name                                              #
+        Spider.base_url = base_url                                                      #
+        Spider.domain_name = domain_name
+        Spider.times = times
+        Spider.queue_file = Spider.project_name + '/queue.txt'
+        Spider.content_file = Spider.project_name + '/content.txt'
+        Spider.queue_file_t = Spider.project_name + '/queue_target.txt'
+        Spider.crawled_file = Spider.project_name + '/crawled.txt'
+        self.boot()
+        self.crawl_page('first spider', Spider.base_url)
+
+    @staticmethod
+    def boot():
+        create_project_dir(Spider.project_name)                                         #创建项目目录
+        create_data_files(Spider.project_name, Spider.base_url)                         #创建项目文件
+        Spider.queue_t = list(file_to_set(Spider.queue_file_t))                               #初始化链接目标文件
+        Spider.content = list(file_to_set(Spider.content_file))
+        Spider.queue = list(file_to_set(Spider.queue_file))
+        Spider.crawled = file_to_set(Spider.crawled_file)
+
+    @staticmethod
+    def crawl_page(thread_name, page_url):
+        if page_url not in Spider.crawled:
+            print(thread_name + ' now crawling ' + page_url)
+            print('Queue '+ str(len(Spider.queue)) + ' | Crawled ' + str(len(Spider.crawled)))
+            Spider.add_links_to_queue(Spider.gather_links(page_url))
+            if Spider.times == 1:
+                global q
+                q = []
+                global ca
+                ca = []
+                global co
+                co = []
+
+            Spider.queue.remove(page_url)
+            Spider.crawled.add(page_url)
+            for i in Spider.queue_t:
+                q.append(i)                                             #q为集合
+            for i in Spider.crawled:
+                ca.append(i)                                         #ca为列表
+            for i in Spider.content:
+                co.append(i)                                         #co为列表
+            #Spider.update_file()
+
+    @staticmethod
+    def gather_links(page_url):
+        html_string = ''
+        try:
+            response = urlopen(page_url)
+            if response.getheader('content-Type') == 'text/html; charset=utf-8':
+                html_bytes = response.read()
+                html_string = html_bytes.decode("utf-8")
+            finder = LinkFinder(Spider.base_url, page_url)
+            finder.feed(html_string)
+        except:
+            print('Error: can not crawl page')
+            return set()
+        return finder.page_links()
+
+    @staticmethod
+    def add_links_to_queue(links):
+        for url in links[0]:
+            if url in Spider.queue_t:
+                continue
+            if url in Spider.crawled:
+                continue
+            if Spider.domain_name not in url:
+                continue
+            Spider.queue_t.append(url)
+        for j in links[1]:
+            Spider.content.append(j)
+
+
+    @staticmethod
+    def update_file():
+        set_to_file(q, Spider.queue_file_t, 2)
+        set_to_file(Spider.queue, Spider.queue_file, 1)
+        set_to_file(ca, Spider.crawled_file, 1)
+        set_to_file(co, Spider.content_file, 2)
+
+
+
+b = sorted(list(file_to_set(r'E:\pythonwork\spider\saraba1st\waiye\queue.txt')))
+jj = 0
+print(len(b))
+while jj < len(b):
+    pp = Spider('saraba1st/waiye', b[jj], 'http://bbs.saraba1st.com/2b/thread', jj+1)
+    if b[-1] == b[jj]:
+        Spider.update_file()
+    jj += 1
+
